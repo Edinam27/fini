@@ -30,6 +30,9 @@ export async function requireUser(): Promise<
 }
 
 export function num(value: unknown, fallback = 0): number {
+  // Number(null) is 0, not NaN — so null/undefined/"" must be handled
+  // explicitly or a searchParam fallback (e.g. ?limit=200) never applies.
+  if (value === null || value === undefined || value === "") return fallback;
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }

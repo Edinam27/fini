@@ -14,9 +14,15 @@ function getPool(): Pool {
         "DATABASE_URL is not set. Put your Neon connection string in .env"
       );
     }
+    // pg v8 currently aliases sslmode=require to verify-full and warns about
+    // the upcoming semantic change; opting into libpq compatibility keeps the
+    // behavior stable and silences the warning.
+    if (/sslmode=require/.test(clientString) && !clientString.includes("uselibpqcompat")) {
+      clientString += "&uselibpqcompat=true";
+    }
   }
   if (!global._pgPool) {
-    // node-postgres honors sslmode=require in the connection string.
+    // node-postgres honors sslmode in the connection string.
     global._pgPool = new Pool({ connectionString: clientString, max: 5 });
   }
   return global._pgPool;
