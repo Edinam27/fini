@@ -33,7 +33,13 @@ interface TrendPoint {
   expenses: number;
 }
 
-export function IncomeExpenseTrend({ data }: { data: TrendPoint[] }) {
+export function IncomeExpenseTrend({
+  data,
+  symbol = "$",
+}: {
+  data: TrendPoint[];
+  symbol?: string;
+}) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -60,9 +66,13 @@ export function IncomeExpenseTrend({ data }: { data: TrendPoint[] }) {
           tickLine={false}
           axisLine={false}
           width={56}
-          tickFormatter={(v: number) => `$${v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v}`}
+          tickFormatter={(v: number) => `${symbol}${v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v}`}
         />
         <Tooltip
+          formatter={(value: unknown, name: unknown) => [
+            `${symbol}${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+            String(name),
+          ]}
           contentStyle={{
             borderRadius: 12,
             border: "1px solid #E2E8F0",
@@ -96,7 +106,15 @@ interface SpendPoint {
   [category: string]: string | number;
 }
 
-export function SpendingTrend({ data, categories }: { data: SpendPoint[]; categories: string[] }) {
+export function SpendingTrend({
+  data,
+  categories,
+  symbol = "$",
+}: {
+  data: SpendPoint[];
+  categories: string[];
+  symbol?: string;
+}) {
   return (
     <ResponsiveContainer width="100%" height={280}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -113,9 +131,13 @@ export function SpendingTrend({ data, categories }: { data: SpendPoint[]; catego
           tickLine={false}
           axisLine={false}
           width={56}
-          tickFormatter={(v: number) => `$${v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v}`}
+          tickFormatter={(v: number) => `${symbol}${v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v}`}
         />
         <Tooltip
+          formatter={(value: unknown, name: unknown) => [
+            `${symbol}${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}`,
+            String(name),
+          ]}
           contentStyle={{
             borderRadius: 12,
             border: "1px solid #E2E8F0",

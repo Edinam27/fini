@@ -170,7 +170,7 @@ export default function DashboardPage() {
               </h3>
             </div>
             {trendData.length > 0 ? (
-              <IncomeExpenseTrend data={trendData} />
+              <IncomeExpenseTrend data={trendData} symbol={sym} />
             ) : (
               <EmptyChart message="No trend data yet — add some transactions to see it." />
             )}
@@ -184,7 +184,7 @@ export default function DashboardPage() {
               </h3>
             </div>
             {spendData.length > 0 ? (
-              <SpendingTrend data={spendData} categories={spendCategories} />
+              <SpendingTrend data={spendData} categories={spendCategories} symbol={sym} />
             ) : (
               <EmptyChart message="No spending data available for the last 30 days." />
             )}
