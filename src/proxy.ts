@@ -29,11 +29,11 @@ export function proxy(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (pathname === "/login" && hasSession) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
-  }
+  // NOTE: deliberately no "/login → /dashboard" redirect here. The cookie can
+  // outlive the DB session (30-min idle expiry vs 7-day cookie maxAge), and
+  // bouncing on cookie-presence alone creates an infinite proxy ↔ server
+  // redirect loop for expired sessions. The login page itself redirects
+  // users with a *valid* session via getSessionUser().
 
   return NextResponse.next();
 }
@@ -50,6 +50,5 @@ export const config = {
     "/bills/:path*",
     "/reports/:path*",
     "/settings/:path*",
-    "/login",
   ],
 };
