@@ -24,8 +24,8 @@ export async function GET() {
           WHERE user_id = $1 AND to_char(date, 'YYYY-MM') = $2`,
           [user.id, month]
         ),
-        query<{ symbol: string; quantity: string; purchase_price: string; portfolio_type: string }>(
-          "SELECT symbol, quantity, purchase_price, portfolio_type FROM portfolios WHERE user_id = $1",
+        query<{ symbol: string; quantity: string; purchase_price: string; portfolio_type: string; currency: string | null }>(
+          "SELECT symbol, quantity, purchase_price, portfolio_type, currency FROM portfolios WHERE user_id = $1",
           [user.id]
         ),
         query<{ total: string }>(
@@ -34,8 +34,8 @@ export async function GET() {
               AND due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + interval '7 days'`,
           [user.id]
         ),
-        queryOne<{ settings: { currency?: string } }>(
-          "SELECT settings FROM users WHERE id = $1",
+        queryOne<{ settings: { currency?: string } | null; currency: string | null }>(
+          "SELECT settings, currency FROM users WHERE id = $1",
           [user.id]
         ),
         query<{ day: string; category: string; amount: string }>(
@@ -83,6 +83,10 @@ export async function GET() {
       ]);
 
     // Portfolio value with live stock prices (falls back to cost basis).
+    // Only holdings in the account currency fold into the totals — foreign-
+    // currency holdings are surfaced as an alert instead of being summed.
+    const accountCurrency = settingsRow?.currency ?? settingsRow?.settings?.currency ?? "USD";
+    const foreignByCurrency = new Map<string, number>();
     const stockSymbols = [
       ...new Set(portfolio.filter((p) => p.portfolio_type === "stock").map((p) => p.symbol)),
     ];
@@ -90,17 +94,24 @@ export async function GET() {
     await Promise.all(
       stockSymbols.map(async (s) => prices.set(s, await fetchStockPrice(s)))
     );
-    const portfolioValue = portfolio.reduce(
-      (acc, p) =>
-        acc +
+    let portfolioValue = 0;
+    let portfolioCost = 0;
+    for (const p of portfolio) {
+      const holdingValue =
         num(p.quantity) *
-          (p.portfolio_type === "stock" ? prices.get(p.symbol) ?? num(p.purchase_price) : num(p.purchase_price)),
-      0
-    );
-    const portfolioCost = portfolio.reduce(
-      (acc, p) => acc + num(p.quantity) * num(p.purchase_price),
-      0
-    );
+        (p.portfolio_type === "stock" ? prices.get(p.symbol) ?? num(p.purchase_price) : num(p.purchase_price));
+      const holdingCost = num(p.quantity) * num(p.purchase_price);
+      const holdingCurrency = p.currency ?? accountCurrency;
+      if (holdingCurrency === accountCurrency) {
+        portfolioValue += holdingValue;
+        portfolioCost += holdingCost;
+      } else {
+        foreignByCurrency.set(
+          holdingCurrency,
+          (foreignByCurrency.get(holdingCurrency) ?? 0) + holdingValue
+        );
+      }
+    }
     const portfolioReturn = portfolioCost > 0 ? (portfolioValue - portfolioCost) / portfolioCost : 0;
 
     const income30 = num(monthTotals?.income);
@@ -118,6 +129,11 @@ export async function GET() {
       | Record<string, number>
       | undefined;
     const alerts: string[] = [];
+    for (const [code, value] of foreignByCurrency) {
+      alerts.push(
+        `Info: ${code} ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} in investments is held outside your display currency — see the Investments page.`
+      );
+    }
     for (const row of alertRows) {
       const budgetAmount = budget?.[row.category];
       if (typeof budgetAmount === "number" && budgetAmount > 0 && num(row.spent) > budgetAmount * 0.8) {
@@ -128,7 +144,7 @@ export async function GET() {
     }
 
     return ok({
-      currency: settings.currency ?? "USD",
+      currency: accountCurrency,
       netWorth,
       totalAssets,
       totalLiabilities,

@@ -1,7 +1,7 @@
 import { ok, fail, serverError, requireUser } from "@/lib/api";
-import { fetchStockPrice } from "@/lib/stocks";
+import { fetchStockMeta } from "@/lib/stocks";
 
-/** GET /api/investments/quote?symbol=AAPL — live stock price lookup. */
+/** GET /api/investments/quote?symbol=AAPL — live stock price + listing currency. */
 export async function GET(req: Request) {
   const { error } = await requireUser();
   if (error) return error;
@@ -9,9 +9,9 @@ export async function GET(req: Request) {
   try {
     const symbol = new URL(req.url).searchParams.get("symbol")?.trim().toUpperCase();
     if (!symbol) return fail("Missing symbol.");
-    const price = await fetchStockPrice(symbol);
-    if (price === null) return fail(`No live price available for ${symbol}.`);
-    return ok({ symbol, price });
+    const meta = await fetchStockMeta(symbol);
+    if (meta.price === null) return fail(`No live price available for ${symbol}.`);
+    return ok({ symbol, price: meta.price, currency: meta.currency });
   } catch (err) {
     return serverError("stock quote", err);
   }

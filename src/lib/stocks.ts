@@ -1,5 +1,15 @@
+/** Normalizes Yahoo's currency codes ("GBp", "ZAc") to ISO codes. */
+function normalizeYahooCurrency(code: string | undefined | null): string | null {
+  if (!code) return null;
+  const map: Record<string, string> = { GBp: "GBP", ZAc: "ZAR", ILA: "ILS" };
+  const upper = code.toUpperCase();
+  return map[upper] ?? upper;
+}
+
 /** Live quote from Yahoo Finance's public chart API (yfinance equivalent). */
-export async function fetchStockPrice(symbol: string): Promise<number | null> {
+export async function fetchStockMeta(
+  symbol: string
+): Promise<{ price: number | null; currency: string | null }> {
   try {
     const res = await fetch(
       `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
@@ -7,22 +17,26 @@ export async function fetchStockPrice(symbol: string): Promise<number | null> {
       )}?range=1d&interval=1d`,
       { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 300 } }
     );
-    if (!res.ok) return null;
+    if (!res.ok) return { price: null, currency: null };
     const json: unknown = await res.json();
-    const closes = extractClose(json);
-    return closes.length > 0 ? closes[closes.length - 1] : null;
+    const first = (json as { chart?: { result?: unknown[] } }).chart?.result?.[0];
+    if (typeof first !== "object" || first === null) return { price: null, currency: null };
+    const result = first as {
+      meta?: { currency?: string };
+      indicators?: { quote?: { close?: (number | null)[] }[] };
+    };
+    const closes = (result.indicators?.quote?.[0]?.close ?? []).filter(
+      (v): v is number => typeof v === "number"
+    );
+    return {
+      price: closes.length > 0 ? closes[closes.length - 1] : null,
+      currency: normalizeYahooCurrency(result.meta?.currency),
+    };
   } catch {
-    return null;
+    return { price: null, currency: null };
   }
 }
 
-function extractClose(json: unknown): number[] {
-  if (typeof json !== "object" || json === null) return [];
-  const result = (json as { chart?: { result?: unknown[] } }).chart?.result;
-  const first = result?.[0];
-  if (typeof first !== "object" || first === null) return [];
-  const closes = (
-    first as { indicators?: { quote?: { close?: (number | null)[] }[] } }
-  ).indicators?.quote?.[0]?.close;
-  return (closes ?? []).filter((v): v is number => typeof v === "number");
+export async function fetchStockPrice(symbol: string): Promise<number | null> {
+  return (await fetchStockMeta(symbol)).price;
 }

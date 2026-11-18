@@ -56,8 +56,12 @@ CREATE TABLE IF NOT EXISTS portfolios (
   purchase_price NUMERIC(14, 4) NOT NULL CHECK (purchase_price >= 0),
   purchase_date  DATE NOT NULL,
   portfolio_type TEXT NOT NULL CHECK (portfolio_type IN ('stock', 'company_share', 'treasury_bill', 'bond')),
+  currency       TEXT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Existing deployments: add the per-holding currency column idempotently.
+ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS currency TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_portfolios_user ON portfolios(user_id);
 

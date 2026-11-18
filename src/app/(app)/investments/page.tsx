@@ -13,7 +13,7 @@ import {
 import { AppHeader } from "@/components/app-header";
 import { StatCard } from "@/components/stat-card";
 import { apiGet, apiSend } from "@/lib/client";
-import { INVESTMENT_TYPES, TBILL_TENURES, BOND_TYPES } from "@/lib/constants";
+import { INVESTMENT_TYPES, TBILL_TENURES, BOND_TYPES, CURRENCIES, currencySymbol } from "@/lib/constants";
 import { formatMoney, formatPercent, formatDate } from "@/lib/format";
 import { useCurrencySymbol } from "@/lib/use-currency";
 
@@ -24,6 +24,8 @@ interface Holding {
   purchase_price: string;
   purchase_date: string;
   portfolio_type: string;
+  /** Currency this holding's price/value are quoted in. */
+  currency: string;
   currentPrice: number;
   value: number;
   positionReturn: number;
@@ -31,7 +33,10 @@ interface Holding {
 
 interface PortfolioData {
   holdings: Holding[];
+  accountCurrency: string;
   totalValue: number;
+  /** Value grouped by holding currency — the account currency is in totalValue. */
+  totalValueByCurrency: Record<string, number>;
   totalCost: number;
   portfolioReturn: number;
   portfolioRisk: number;
@@ -56,9 +61,12 @@ export default function InvestmentsPage() {
   const [invType, setInvType] = useState<string>("Stocks");
   const [symbol, setSymbol] = useState("");
   const [quote, setQuote] = useState<number | null>(null);
+  const [quoteCurrency, setQuoteCurrency] = useState<string | null>(null);
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
   const [profitability, setProfitability] = useState("");
+  const [currencyCode, setCurrencyCode] = useState("");
+  const [currencyTouched, setCurrencyTouched] = useState(false);
   const [tenure, setTenure] = useState<string>(TBILL_TENURES[0]);
   const [tbillAmount, setTbillAmount] = useState("");
   const [interestRate, setInterestRate] = useState("");
@@ -106,6 +114,10 @@ export default function InvestmentsPage() {
       const res = await fetch(`/api/investments/quote?symbol=${encodeURIComponent(symbol.trim().toUpperCase())}`);
       const json = await res.json();
       setQuote(json.success ? json.data.price : null);
+      setQuoteCurrency(json.success ? (json.data.currency ?? null) : null);
+      if (json.success && json.data.currency && !currencyTouched) {
+        setCurrencyCode(json.data.currency);
+      }
       if (json.success && json.data.price) setPrice(String(json.data.price.toFixed(2)));
       else setError(`Could not fetch a live price for ${symbol.toUpperCase()}.`);
     } catch {
@@ -122,6 +134,7 @@ export default function InvestmentsPage() {
     setSuccess(null);
     try {
       let payload: Record<string, unknown> | null = null;
+      const chosenCurrency = currencyCode || undefined;
       if (invType === "Stocks") {
         if (!symbol.trim() || Number(quantity) <= 0) throw new Error("Enter a stock symbol and quantity.");
         payload = {
@@ -129,6 +142,7 @@ export default function InvestmentsPage() {
           symbol: symbol.trim().toUpperCase(),
           quantity: Number(quantity),
           purchase_price: Number(price || 0),
+          currency: chosenCurrency,
         };
       } else if (invType === "Company Shares") {
         if (!symbol.trim() || Number(quantity) <= 0 || Number(price) <= 0)
@@ -138,6 +152,7 @@ export default function InvestmentsPage() {
           symbol: symbol.trim(),
           quantity: Number(quantity),
           purchase_price: Number(price),
+          currency: chosenCurrency,
         };
         void profitability;
       } else if (invType === "Treasury Bills") {
@@ -147,6 +162,7 @@ export default function InvestmentsPage() {
           symbol: `T-Bill ${tenure}`,
           quantity: 1,
           purchase_price: Number(tbillAmount),
+          currency: chosenCurrency,
         };
         void interestRate;
         void maturityDate;
@@ -158,6 +174,7 @@ export default function InvestmentsPage() {
           symbol: `${bondType} Bond - ${bondName.trim()}`,
           quantity: 1,
           purchase_price: Number(principal),
+          currency: chosenCurrency,
         };
         void couponRate;
         void maturityYears;
@@ -167,8 +184,11 @@ export default function InvestmentsPage() {
       setSuccess("Investment added successfully!");
       setSymbol("");
       setQuote(null);
+      setQuoteCurrency(null);
       setQuantity("");
       setPrice("");
+      setCurrencyCode("");
+      setCurrencyTouched(false);
       setShowForm(false);
       await load();
     } catch (e2) {
@@ -238,6 +258,17 @@ export default function InvestmentsPage() {
         />
       </div>
 
+      {/* Foreign-currency holdings are excluded from the totals above — show them here. */}
+      {data &&
+        Object.entries(data.totalValueByCurrency)
+          .filter(([code]) => code !== data.accountCurrency)
+          .map(([code, value]) => (
+            <div key={code} className="badge badge-slate mt-3 w-full justify-start">
+              Held in {code}: {formatMoney(value, currencySymbol(code))} — outside your{" "}
+              {data.accountCurrency} totals
+            </div>
+          ))}
+
       {/* Add form */}
       {showForm && (
         <form onSubmit={addInvestment} className="card mt-6 p-6">
@@ -252,6 +283,25 @@ export default function InvestmentsPage() {
                 {t}
               </button>
             ))}
+          </div>
+
+          {/* Currency the amounts are quoted in. Stocks prefill from the
+              live quote's listing currency unless manually overridden. */}
+          <div className="mb-4 sm:max-w-48">
+            <label className="field-label">Currency</label>
+            <select
+              className="input"
+              value={currencyCode}
+              onChange={(e) => {
+                setCurrencyCode(e.target.value);
+                setCurrencyTouched(true);
+              }}
+            >
+              <option value="">Account currency</option>
+              {CURRENCIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
           </div>
 
           {invType === "Stocks" && (
@@ -271,7 +321,9 @@ export default function InvestmentsPage() {
                 </div>
               </div>
               <div>
-                <label className="field-label">Current Price {quote !== null && "(live)"}</label>
+                <label className="field-label">
+                  Current Price {quote !== null && `(live${quoteCurrency ? `, ${quoteCurrency}` : ""})`}
+                </label>
                 <input
                   className="input"
                   type="number"
@@ -389,6 +441,7 @@ export default function InvestmentsPage() {
           ) : (
             data.holdings.map((h) => {
               const gain = h.positionReturn >= 0;
+              const holdingSym = currencySymbol(h.currency);
               return (
                 <div
                   key={h.id}
@@ -398,16 +451,16 @@ export default function InvestmentsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-[#0F172A]">{h.symbol}</p>
                     <p className="text-xs text-[#64748B]">
-                      {Number(h.quantity)} units · bought {formatDate(h.purchase_date)}
+                      {Number(h.quantity)} units · {h.currency} · bought {formatDate(h.purchase_date)}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-[#64748B]">Price</p>
-                    <p className="text-sm font-medium text-[#0F172A]">{formatMoney(h.currentPrice, sym)}</p>
+                    <p className="text-sm font-medium text-[#0F172A]">{formatMoney(h.currentPrice, holdingSym)}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-[#64748B]">Value</p>
-                    <p className="font-heading text-sm font-bold text-[#0F172A]">{formatMoney(h.value, sym)}</p>
+                    <p className="font-heading text-sm font-bold text-[#0F172A]">{formatMoney(h.value, holdingSym)}</p>
                   </div>
                   <span className={`badge ${gain ? "badge-green" : "badge-red"}`}>
                     {formatPercent(h.positionReturn * 100)}

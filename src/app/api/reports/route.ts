@@ -82,22 +82,39 @@ export async function POST(req: Request) {
       ),
     ]);
 
-    // Portfolio performance (live prices for stocks).
-    const holdings = await query<{ symbol: string; portfolio_type: string; quantity: string; purchase_price: string }>(
-      "SELECT symbol, portfolio_type, quantity, purchase_price FROM portfolios WHERE user_id = $1",
-      [user.id]
-    );
+    // Portfolio performance (live prices for stocks). Only holdings in the
+    // account currency fold into the totals; foreign-currency holdings are
+    // reported as a note instead of being summed.
+    const [holdings, account] = await Promise.all([
+      query<{ symbol: string; portfolio_type: string; quantity: string; purchase_price: string; currency: string | null }>(
+        "SELECT symbol, portfolio_type, quantity, purchase_price, currency FROM portfolios WHERE user_id = $1",
+        [user.id]
+      ),
+      queryOne<{ currency: string | null }>("SELECT currency FROM users WHERE id = $1", [user.id]),
+    ]);
+    const accountCurrency = account?.currency ?? "USD";
+    const foreignByCurrency = new Map<string, number>();
     const stockSet = [...new Set(holdings.filter((h) => h.portfolio_type === "stock").map((h) => h.symbol))];
     const priceMap = new Map<string, number | null>();
     await Promise.all(stockSet.map(async (s) => priceMap.set(s, await fetchStockPrice(s))));
-    const portfolioValue = holdings.reduce(
-      (acc, h) =>
-        acc +
+    let portfolioValue = 0;
+    let portfolioCost = 0;
+    for (const h of holdings) {
+      const holdingValue =
         num(h.quantity) *
-          (h.portfolio_type === "stock" ? priceMap.get(h.symbol) ?? num(h.purchase_price) : num(h.purchase_price)),
-      0
-    );
-    const portfolioCost = holdings.reduce((acc, h) => acc + num(h.quantity) * num(h.purchase_price), 0);
+        (h.portfolio_type === "stock" ? priceMap.get(h.symbol) ?? num(h.purchase_price) : num(h.purchase_price));
+      const holdingCost = num(h.quantity) * num(h.purchase_price);
+      const holdingCurrency = h.currency ?? accountCurrency;
+      if (holdingCurrency === accountCurrency) {
+        portfolioValue += holdingValue;
+        portfolioCost += holdingCost;
+      } else {
+        foreignByCurrency.set(
+          holdingCurrency,
+          (foreignByCurrency.get(holdingCurrency) ?? 0) + holdingValue
+        );
+      }
+    }
 
     const income = num(totals?.income);
     const expenses = num(totals?.expenses);
@@ -130,6 +147,11 @@ export async function POST(req: Request) {
     }
     if (portfolioCost > 0 && portfolioValue >= portfolioCost) {
       recommendations.push("Your investments are in profit — keep monitoring allocation risk.");
+    }
+    for (const [code, value] of foreignByCurrency) {
+      recommendations.push(
+        `Investments worth ${code} ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} are held outside your display currency and excluded from the totals above — see the Investments page.`
+      );
     }
     for (const g of goalProgress) {
       if (g.deadline && g.percentage < 50) {
