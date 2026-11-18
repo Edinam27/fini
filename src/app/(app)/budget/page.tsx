@@ -5,8 +5,9 @@ import { Loader2, PiggyBank, AlertTriangle, Save, ClipboardList } from "lucide-r
 import { AppHeader } from "@/components/app-header";
 import { StatCard, ProgressBarChart } from "@/components/stat-card";
 import { apiGet, apiSend } from "@/lib/client";
-import { INCOME_SOURCES, EXPENSE_CATEGORIES, currencySymbol } from "@/lib/constants";
+import { INCOME_SOURCES, EXPENSE_CATEGORIES } from "@/lib/constants";
 import { formatMoney } from "@/lib/format";
+import { useCurrencySymbol } from "@/lib/use-currency";
 
 interface BudgetData {
   month: string;
@@ -73,7 +74,7 @@ export default function BudgetPage() {
     }
   }
 
-  const sym = currencySymbol("USD");
+  const sym = useCurrencySymbol();
   const totalIncome = Object.values(income).reduce((a, b) => a + b, 0);
   const totalBudget = Object.values(budgets).reduce((a, b) => a + b, 0);
   const remaining = totalIncome - totalBudget;

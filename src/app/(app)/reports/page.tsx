@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { Loader2, FileBarChart, Download, Sparkles, Lightbulb } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { apiSend } from "@/lib/client";
-import { currencySymbol } from "@/lib/constants";
 import { formatMoney, formatPercent } from "@/lib/format";
+import { useCurrencySymbol } from "@/lib/use-currency";
 
 interface ReportData {
   period: string;
@@ -57,7 +57,7 @@ export default function ReportsPage() {
     };
   }, []);
 
-  const sym = currencySymbol("USD");
+  const sym = useCurrencySymbol();
 
   return (
     <>

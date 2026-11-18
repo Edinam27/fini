@@ -5,8 +5,9 @@ import { Plus, Loader2, CalendarClock, Check, Trash2 } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { StatCard } from "@/components/stat-card";
 import { apiGet, apiSend } from "@/lib/client";
-import { BILL_FREQUENCIES, EXPENSE_CATEGORIES, currencySymbol } from "@/lib/constants";
+import { BILL_FREQUENCIES, EXPENSE_CATEGORIES } from "@/lib/constants";
 import { formatMoney, formatDate, todayISO } from "@/lib/format";
+import { useCurrencySymbol } from "@/lib/use-currency";
 
 interface Bill {
   id: number;
@@ -134,7 +135,7 @@ export default function BillsPage() {
     }
   }
 
-  const sym = currencySymbol("USD");
+  const sym = useCurrencySymbol();
   const totalUpcoming = bills.filter((b) => !b.paid).reduce((a, b) => a + Number(b.amount), 0);
 
   return (

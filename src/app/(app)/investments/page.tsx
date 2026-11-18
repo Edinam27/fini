@@ -13,8 +13,9 @@ import {
 import { AppHeader } from "@/components/app-header";
 import { StatCard } from "@/components/stat-card";
 import { apiGet, apiSend } from "@/lib/client";
-import { currencySymbol, INVESTMENT_TYPES, TBILL_TENURES, BOND_TYPES } from "@/lib/constants";
+import { INVESTMENT_TYPES, TBILL_TENURES, BOND_TYPES } from "@/lib/constants";
 import { formatMoney, formatPercent, formatDate } from "@/lib/format";
+import { useCurrencySymbol } from "@/lib/use-currency";
 
 interface Holding {
   id: number;
@@ -187,7 +188,7 @@ export default function InvestmentsPage() {
     }
   }
 
-  const sym = currencySymbol("USD");
+  const sym = useCurrencySymbol();
 
   return (
     <>

@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, Loader2, Target, CalendarClock, CheckCircle2 } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { apiGet, apiSend } from "@/lib/client";
-import { currencySymbol } from "@/lib/constants";
 import { formatMoney, formatDate, todayISO } from "@/lib/format";
+import { useCurrencySymbol } from "@/lib/use-currency";
 
 interface Goal {
   id: number;
@@ -98,7 +98,7 @@ export default function GoalsPage() {
     setBusy(true);
     try {
       await apiSend("/api/goals", "PATCH", { id: goal.id, amount });
-      setSuccess(`Added ${formatMoney(amount)} to "${goal.name}".`);
+      setSuccess(`Added ${formatMoney(amount, sym)} to "${goal.name}".`);
       setContributions((prev) => ({ ...prev, [goal.id]: "" }));
       await load();
     } catch (e) {
@@ -118,7 +118,7 @@ export default function GoalsPage() {
     }
   }
 
-  const sym = currencySymbol("USD");
+  const sym = useCurrencySymbol();
 
   return (
     <>

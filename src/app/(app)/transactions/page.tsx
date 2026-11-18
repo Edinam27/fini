@@ -8,9 +8,9 @@ import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
   PAYMENT_METHODS,
-  currencySymbol,
 } from "@/lib/constants";
 import { formatMoney, todayISO } from "@/lib/format";
+import { useCurrencySymbol } from "@/lib/use-currency";
 
 interface Transaction {
   id: number;
@@ -51,7 +51,7 @@ export default function TransactionsPage() {
   const [filterCategory, setFilterCategory] = useState("");
   const [sort, setSort] = useState("date-desc");
 
-  const sym = currencySymbol("USD");
+  const sym = useCurrencySymbol();
 
   async function load() {
     setLoading(true);

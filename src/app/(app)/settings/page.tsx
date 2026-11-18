@@ -89,6 +89,8 @@ export default function SettingsPage() {
         notifications,
       });
       setSuccess("Settings saved successfully!");
+      // Other pages resolve their symbol via useCurrencySymbol; tell them to refetch.
+      window.dispatchEvent(new Event("fp-currency-changed"));
       await load();
     } catch (e2) {
       setError(e2 instanceof Error ? e2.message : "Save failed");

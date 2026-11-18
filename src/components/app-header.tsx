@@ -16,7 +16,7 @@ export function AppHeader({
         <p className="mt-1 text-sm text-[#64748B]">{subtitle}</p>
       </div>
       <div className="flex items-center gap-3">
-        <span className="badge badge-green">
+        <span className="badge badge-green hidden sm:inline-flex">
           <span className="pulse-dot h-2 w-2 rounded-full bg-green-500" />
           All systems live
         </span>
@@ -29,7 +29,7 @@ export function AppHeader({
         </button>
         <button className="btn btn-dark">
           <CircleHelp size={18} />
-          Help Center
+          <span className="hidden sm:inline">Help Center</span>
         </button>
       </div>
     </header>

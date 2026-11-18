@@ -16,7 +16,7 @@ export default async function AppLayout({
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
       <Sidebar username={user.username} email={user.email} />
-      <MobileNav username={user.username} />
+      <MobileNav username={user.username} email={user.email} />
       <main className="px-6 py-6 max-lg:px-4 lg:ml-64">{children}</main>
     </div>
   );

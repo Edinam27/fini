@@ -5,8 +5,8 @@ import { Plus, Loader2, CreditCard, Send, Trash2, Percent } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { StatCard } from "@/components/stat-card";
 import { apiGet, apiSend } from "@/lib/client";
-import { currencySymbol } from "@/lib/constants";
 import { formatMoney, formatDate } from "@/lib/format";
+import { useCurrencySymbol } from "@/lib/use-currency";
 
 interface Debt {
   id: number;
@@ -128,7 +128,7 @@ export default function DebtsPage() {
     }
   }
 
-  const sym = currencySymbol("USD");
+  const sym = useCurrencySymbol();
 
   return (
     <>
